@@ -31,7 +31,7 @@ export default definePluginEntry({
         (api.runtime.config.current().plugins?.entries?.vaultwarden?.config as
           | { session?: SecretInput }
           | undefined)?.session,
-      config: () => api.runtime.config.current(),
+      config: api.config,
       env: api.env,
     });
     const audit = (event: VaultwardenAuditEvent) => {
