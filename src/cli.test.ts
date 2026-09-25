@@ -39,7 +39,7 @@ describe("Vaultwarden CLI adapter primitives", () => {
     const runner = createBitwardenCliRunner({
       session: { source: "env", provider: "default", id: "TEST_BW_SESSION" },
       config: {} as never,
-      env: { PATH: "/usr/bin", TEST_BW_SESSION: "test-session-token" },
+      env: { PATH: "/usr/bin", HOME: "/tmp/test-home", TEST_BW_SESSION: "test-session-token" },
       executor: async (_file, _args, options) => {
         commandEnv = options.env;
         return { stdout: JSON.stringify({ status: "unlocked" }), stderr: "" };
@@ -49,6 +49,7 @@ describe("Vaultwarden CLI adapter primitives", () => {
     await runner(["status"]);
 
     expect(commandEnv?.BW_SESSION).toBe("test-session-token");
+    expect(commandEnv?.HOME).toBe("/tmp/test-home");
   });
 
   it("reads the runtime config at command time", async () => {

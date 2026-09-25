@@ -25,11 +25,21 @@ export default definePluginEntry({
       timeoutSeconds?: number;
       maxResults?: number;
     };
+    const configuredSession = (api.config.plugins?.entries?.vaultwarden?.config as
+      | { session?: SecretInput }
+      | undefined)?.session;
     const runner = createBitwardenCliRunner({
       ...config,
-      session: config.session,
+      session: configuredSession ?? config.session,
       config: api.config,
       env: api.env,
+      onSessionResolution: (result) =>
+        api.logger.info(
+          JSON.stringify({
+            event: "vaultwarden_session_resolution",
+            ...result,
+          }),
+        ),
     });
     const audit = (event: VaultwardenAuditEvent) => {
       api.logger.info(JSON.stringify(event));

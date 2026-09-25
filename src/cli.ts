@@ -41,6 +41,7 @@ export function createBitwardenCliRunner(params?: {
   timeoutSeconds?: number;
   env?: NodeJS.ProcessEnv;
   executor?: CliExecutor;
+  onSessionResolution?: (result: { configured: boolean; resolved: boolean; reason?: string }) => void;
 }): CliRunner {
   const sessionEnv = params?.sessionEnv ?? "BW_SESSION";
   const timeout = (params?.timeoutSeconds ?? 15) * 1_000;
@@ -49,7 +50,15 @@ export function createBitwardenCliRunner(params?: {
   const env: NodeJS.ProcessEnv = {
     PATH: inherited.PATH,
   };
-  for (const key of [sessionEnv, "BITWARDENCLI_APPDATA_DIR", "NODE_EXTRA_CA_CERTS"]) {
+  for (const key of [
+    "HOME",
+    "USERPROFILE",
+    "XDG_CONFIG_HOME",
+    "XDG_DATA_HOME",
+    sessionEnv,
+    "BITWARDENCLI_APPDATA_DIR",
+    "NODE_EXTRA_CA_CERTS",
+  ]) {
     if (inherited[key]) {
       env[key] = inherited[key];
     }
@@ -69,6 +78,13 @@ export function createBitwardenCliRunner(params?: {
       if (resolved.value) {
         commandEnv[sessionEnv] = resolved.value;
       }
+      params?.onSessionResolution?.({
+        configured: true,
+        resolved: Boolean(resolved.value),
+        reason: resolved.unresolvedRefReason,
+      });
+    } else {
+      params?.onSessionResolution?.({ configured: session !== undefined, resolved: false });
     }
     const result = await executor("bw", args, {
       env: commandEnv,
