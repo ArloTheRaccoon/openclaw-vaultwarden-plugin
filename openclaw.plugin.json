@@ -1,0 +1,41 @@
+{
+  "id": "vaultwarden",
+  "name": "Vaultwarden",
+  "description": "Bitwarden-compatible Vaultwarden tools for OpenClaw",
+  "activation": {
+    "onStartup": false
+  },
+  "contracts": {
+    "tools": [
+      "vaultwarden_status",
+      "vaultwarden_search",
+      "vaultwarden_get_item",
+      "vaultwarden_list_folders",
+      "vaultwarden_list_collections"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "adapter": {
+        "type": "string",
+        "enum": ["cli"]
+      },
+      "sessionEnv": {
+        "type": "string",
+        "minLength": 1
+      },
+      "timeoutSeconds": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 120
+      },
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@arloraccoon/openclaw-vaultwarden",
+  "version": "0.1.0-local.20260924",
+  "description": "Read-only Bitwarden-compatible Vaultwarden tools for OpenClaw",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArloTheRaccoon/openclaw-vaultwarden"
+  },
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "files": [
+    "dist/**",
+    "openclaw.plugin.json",
+    "README.md",
+    "package.json"
+  ],
+  "dependencies": {
+    "typebox": "1.1.38"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.9.5"
+  },
+  "openclaw": {
+    "extensions": ["./dist/index.mjs"],
+    "install": {
+      "npmSpec": "@arloraccoon/openclaw-vaultwarden",
+      "defaultChoice": "npm",
+      "minHostVersion": ">=2026.9.5"
+    },
+    "compat": {
+      "pluginApi": ">=2026.5.19"
+    },
+    "release": {
+      "publishToNpm": true,
+      "publishToClawHub": true
+    }
+  }
+}
