@@ -15,6 +15,7 @@ type CliProgram = {
 export type AuthCliOptions = {
   sessionFile?: string;
   unlock?: () => string;
+  login?: () => void;
 };
 
 const defaultSessionFile = "~/.openclaw/secrets/vaultwarden-session";
@@ -54,6 +55,30 @@ function unlockWithBitwardenCli(): string {
   return result.stdout ?? "";
 }
 
+function loginWithBitwardenCli(): void {
+  const result = spawnSync("bw", ["login"], { stdio: "inherit" });
+  if (result.error || result.status !== 0) {
+    throw new Error("Bitwarden CLI login failed");
+  }
+}
+
+function isBitwardenLoggedIn(): boolean {
+  const result = spawnSync("bw", ["status", "--raw"], {
+    stdio: ["ignore", "pipe", "ignore"],
+    encoding: "utf8",
+    maxBuffer: 64 * 1024,
+  });
+  if (result.error || result.status !== 0) {
+    return false;
+  }
+  try {
+    const status = JSON.parse(result.stdout ?? "") as { status?: string };
+    return status.status !== "unauthenticated";
+  } catch {
+    return false;
+  }
+}
+
 export function registerVaultwardenAuthCli(
   program: CliProgram,
   options: AuthCliOptions = {},
@@ -64,6 +89,9 @@ export function registerVaultwardenAuthCli(
     .option("--session-file <path>", "0600 file for the session token", defaultSessionFile)
     .action(async ({ sessionFile = defaultSessionFile }) => {
       try {
+        if (!isBitwardenLoggedIn()) {
+          (options.login ?? loginWithBitwardenCli)();
+        }
         const target = storeSessionToken(
           (options.unlock ?? unlockWithBitwardenCli)(),
           sessionFile,
