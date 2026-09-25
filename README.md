@@ -75,8 +75,19 @@ using an OpenClaw SecretRef:
 
 The session is resolved only at the CLI boundary and is never returned by a
 tool or written to audit events. File and exec SecretRefs are also supported.
-An operator-auth setup flow for minting and refreshing sessions remains a
-separate release gate.
+
+For a local operator setup that does not depend on Gateway environment
+inheritance, run this from the OpenClaw host:
+
+```bash
+openclaw vaultwarden --session-file ~/.openclaw/secrets/vaultwarden-session
+```
+
+The command runs `bw unlock --raw` with the password prompt attached to the
+terminal, stores only the resulting session in a `0600` file, and prints no
+token. Configure the OpenClaw file provider and plugin reference using the
+values it prints, then reload the plugin. The model still cannot unlock the
+vault or receive the session token.
 
 ## Security model
 

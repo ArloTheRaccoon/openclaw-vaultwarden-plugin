@@ -1,6 +1,7 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import type { SecretInput } from "openclaw/plugin-sdk/config-contracts";
 import { emitVaultwardenAudit, type VaultwardenAuditEvent } from "./src/audit.js";
+import { registerVaultwardenAuthCli } from "./src/auth-cli.js";
 import { createBitwardenCliRunner } from "./src/cli.js";
 import { createVaultwardenStatusTool } from "./src/status-tool.js";
 import {
@@ -15,6 +16,9 @@ export default definePluginEntry({
   name: "Vaultwarden",
   description: "Bitwarden-compatible Vaultwarden tools for OpenClaw",
   register(api) {
+    api.registerCli?.(({ program }) => registerVaultwardenAuthCli(program), {
+      commands: ["vaultwarden"],
+    });
     const config = api.pluginConfig as {
       sessionEnv?: string;
       session?: SecretInput;
