@@ -36,7 +36,7 @@ export function redactCliError(_error: unknown): string {
 
 export function createBitwardenCliRunner(params?: {
   sessionEnv?: string;
-  session?: SecretInput;
+  session?: SecretInput | (() => SecretInput | undefined);
   config?: OpenClawConfig | (() => OpenClawConfig);
   timeoutSeconds?: number;
   env?: NodeJS.ProcessEnv;
@@ -58,11 +58,12 @@ export function createBitwardenCliRunner(params?: {
   return async (args) => {
     const commandEnv = { ...env };
     const config = typeof params?.config === "function" ? params.config() : params?.config;
-    if (params?.session !== undefined && config) {
+    const session = typeof params?.session === "function" ? params.session() : params?.session;
+    if (session !== undefined && config) {
       const resolved = await resolveConfiguredSecretInputString({
         config,
         env: inherited,
-        value: params.session,
+        value: session,
         path: "plugins.entries.vaultwarden.config.session",
       });
       if (resolved.value) {

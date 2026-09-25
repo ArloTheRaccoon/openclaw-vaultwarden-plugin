@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SecretInput } from "openclaw/plugin-sdk/config-contracts";
 import { createBitwardenCliRunner, redactCliError, parseBwStatus, type CliRunner } from "./cli.js";
 
 describe("Vaultwarden CLI adapter primitives", () => {
@@ -66,5 +67,27 @@ describe("Vaultwarden CLI adapter primitives", () => {
     await runner(["status"]);
 
     expect(commandEnv?.BW_SESSION).toBe("live-session-token");
+  });
+
+  it("reads the session reference at command time", async () => {
+    let session: SecretInput | undefined = {
+      source: "env",
+      provider: "default",
+      id: "TEST_BW_SESSION",
+    };
+    let commandEnv: NodeJS.ProcessEnv | undefined;
+    const runner = createBitwardenCliRunner({
+      session: () => session,
+      config: () => ({} as never),
+      env: { PATH: "/usr/bin", TEST_BW_SESSION: "live-session-token" },
+      executor: async (_file, _args, options) => {
+        commandEnv = options.env;
+        return { stdout: JSON.stringify({ status: "unlocked" }), stderr: "" };
+      },
+    });
+
+    await runner(["status"]);
+    expect(commandEnv?.BW_SESSION).toBe("live-session-token");
+    session = undefined;
   });
 });
