@@ -1,6 +1,6 @@
 {
   "name": "@arloraccoon/openclaw-vaultwarden",
-  "version": "0.1.6-local.20260925",
+  "version": "0.1.7-local.20260925",
   "description": "Read-only Bitwarden-compatible Vaultwarden tools for OpenClaw",
   "scripts": {
     "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs",

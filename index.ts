@@ -27,10 +27,7 @@ export default definePluginEntry({
     };
     const runner = createBitwardenCliRunner({
       ...config,
-      session: () =>
-        (api.runtime.config.current().plugins?.entries?.vaultwarden?.config as
-          | { session?: SecretInput }
-          | undefined)?.session,
+      session: config.session,
       config: api.config,
       env: api.env,
     });
