@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redactCliError, parseBwStatus, type CliRunner } from "./cli.js";
+import { createBitwardenCliRunner, redactCliError, parseBwStatus, type CliRunner } from "./cli.js";
 
 describe("Vaultwarden CLI adapter primitives", () => {
   it("parses status without requiring vault contents", () => {
@@ -31,5 +31,22 @@ describe("Vaultwarden CLI adapter primitives", () => {
     });
     const result = await runner(["status"]);
     expect(result.stdout).toContain('"locked"');
+  });
+
+  it("resolves a configured session SecretRef only into the CLI environment", async () => {
+    let commandEnv: NodeJS.ProcessEnv | undefined;
+    const runner = createBitwardenCliRunner({
+      session: { source: "env", provider: "default", id: "TEST_BW_SESSION" },
+      config: {} as never,
+      env: { PATH: "/usr/bin", TEST_BW_SESSION: "test-session-token" },
+      executor: async (_file, _args, options) => {
+        commandEnv = options.env;
+        return { stdout: JSON.stringify({ status: "unlocked" }), stderr: "" };
+      },
+    });
+
+    await runner(["status"]);
+
+    expect(commandEnv?.BW_SESSION).toBe("test-session-token");
   });
 });

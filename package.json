@@ -1,7 +1,11 @@
 {
   "name": "@arloraccoon/openclaw-vaultwarden",
-  "version": "0.1.0-local.20260924",
+  "version": "0.1.1-local.20260924",
   "description": "Read-only Bitwarden-compatible Vaultwarden tools for OpenClaw",
+  "scripts": {
+    "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs",
+    "test": "vitest run src/*.test.ts"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ArloTheRaccoon/openclaw-vaultwarden"
@@ -21,6 +25,10 @@
   },
   "peerDependencies": {
     "openclaw": ">=2026.9.5"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.0",
+    "vitest": "4.1.6"
   },
   "openclaw": {
     "extensions": ["./dist/index.mjs"],

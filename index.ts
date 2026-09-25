@@ -1,4 +1,5 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import type { SecretInput } from "openclaw/plugin-sdk/config-contracts";
 import { emitVaultwardenAudit, type VaultwardenAuditEvent } from "./src/audit.js";
 import { createBitwardenCliRunner } from "./src/cli.js";
 import { createVaultwardenStatusTool } from "./src/status-tool.js";
@@ -16,10 +17,15 @@ export default definePluginEntry({
   register(api) {
     const config = api.pluginConfig as {
       sessionEnv?: string;
+      session?: SecretInput;
       timeoutSeconds?: number;
       maxResults?: number;
     };
-    const runner = createBitwardenCliRunner(config);
+    const runner = createBitwardenCliRunner({
+      ...config,
+      config: api.config,
+      env: api.env,
+    });
     const audit = (event: VaultwardenAuditEvent) => {
       api.logger.info(JSON.stringify(event));
     };

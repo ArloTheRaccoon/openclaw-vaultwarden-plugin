@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { OpenClawConfig, SecretInput } from "openclaw/plugin-sdk/config-contracts";
+import { resolveConfiguredSecretInputString } from "openclaw/plugin-sdk/secret-input-runtime";
 
 const execFileAsync = promisify(execFile);
 
@@ -10,6 +12,15 @@ export type BwStatus = {
 
 export type CliResult = { stdout: string; stderr: string };
 export type CliRunner = (args: string[]) => Promise<CliResult>;
+type CliExecutor = (
+  file: string,
+  args: string[],
+  options: {
+    env: NodeJS.ProcessEnv;
+    timeout: number;
+    maxBuffer: number;
+  },
+) => Promise<CliResult>;
 
 export function parseBwStatus(stdout: string): BwStatus {
   const parsed = JSON.parse(stdout) as Record<string, unknown>;
@@ -25,12 +36,16 @@ export function redactCliError(_error: unknown): string {
 
 export function createBitwardenCliRunner(params?: {
   sessionEnv?: string;
+  session?: SecretInput;
+  config?: OpenClawConfig;
   timeoutSeconds?: number;
   env?: NodeJS.ProcessEnv;
+  executor?: CliExecutor;
 }): CliRunner {
   const sessionEnv = params?.sessionEnv ?? "BW_SESSION";
   const timeout = (params?.timeoutSeconds ?? 15) * 1_000;
   const inherited = params?.env ?? process.env;
+  const executor = params?.executor ?? (execFileAsync as unknown as CliExecutor);
   const env: NodeJS.ProcessEnv = {
     PATH: inherited.PATH,
   };
@@ -41,8 +56,20 @@ export function createBitwardenCliRunner(params?: {
   }
 
   return async (args) => {
-    const result = await execFileAsync("bw", args, {
-      env,
+    const commandEnv = { ...env };
+    if (params?.session !== undefined && params.config) {
+      const resolved = await resolveConfiguredSecretInputString({
+        config: params.config,
+        env: inherited,
+        value: params.session,
+        path: "plugins.entries.vaultwarden.config.session",
+      });
+      if (resolved.value) {
+        commandEnv[sessionEnv] = resolved.value;
+      }
+    }
+    const result = await executor("bw", args, {
+      env: commandEnv,
       timeout,
       maxBuffer: 2 * 1024 * 1024,
     });

@@ -37,6 +37,7 @@ The plugin accepts:
 
 - `adapter`: currently `cli`
 - `sessionEnv`: alternate environment variable name for the CLI session
+- `session`: an OpenClaw SecretRef or session string; SecretRef is recommended
 - `timeoutSeconds`: command timeout, from 1 to 120 seconds
 - `maxResults`: result bound, from 1 to 100 items
 
@@ -49,6 +50,33 @@ Example:
   "maxResults": 20
 }
 ```
+
+For a managed deployment, keep the session out of plaintext config and chat by
+using an OpenClaw SecretRef:
+
+```json5
+{
+  plugins: {
+    entries: {
+      vaultwarden: {
+        enabled: true,
+        config: {
+          session: {
+            source: "env",
+            provider: "default",
+            id: "BW_SESSION"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+The session is resolved only at the CLI boundary and is never returned by a
+tool or written to audit events. File and exec SecretRefs are also supported.
+An operator-auth setup flow for minting and refreshing sessions remains a
+separate release gate.
 
 ## Security model
 
