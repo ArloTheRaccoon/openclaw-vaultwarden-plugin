@@ -76,6 +76,40 @@ using an OpenClaw SecretRef:
 The session is resolved only at the CLI boundary and is never returned by a
 tool or written to audit events. File and exec SecretRefs are also supported.
 
+## SecretRef provider integration
+
+The plugin also declares a managed OpenClaw exec SecretRef provider preset
+named vaultwarden. OpenClaw runs the packaged Node resolver; the resolver
+reads only exact Bitwarden item IDs and returns only the explicitly selected
+field. It does not make secrets available through the plugin's read-only
+tools.
+
+Use a SecretRef ID in one of these forms:
+
+- `<item-uuid>/password` — the login password only
+- `<item-uuid>/field/<custom-field-name>` — exactly one custom text or hidden
+  field with that exact name
+
+For example, a supported service credential can refer to
+`{ "source": "exec", "provider": "vaultwarden", "id":
+"123e4567-e89b-42d3-a456-426614174000/password" }`. Replace the example UUID
+with the selected item's UUID. Username, TOTP, notes, boolean fields, and
+ambiguous/missing field names are not supported.
+
+The resolver uses `BW_SESSION` when OpenClaw explicitly passes it. Otherwise it
+reads `~/.openclaw/secrets/vaultwarden-session`, the private file created by
+`openclaw vaultwarden`; set `VAULTWARDEN_SESSION_FILE` to override that path.
+The file must be a regular, non-symlink file owned by the OpenClaw user with
+no group/other permissions (normally mode 0600) and contain one non-empty
+session value. Ensure bw is installed and configured for the intended
+Vaultwarden profile on the OpenClaw host.
+
+Requests are bounded, item IDs are strict UUIDs, and `bw get item <UUID>` is
+spawned without a shell, with a timeout and output limit. Resolver failures
+are generic and do not include CLI output or secret values. SecretRef
+materialization is handled by OpenClaw for supported config fields; this does
+not add a Git credential handoff or change OpenClaw's production config.
+
 For a local operator setup that does not depend on Gateway environment
 inheritance, run this from the OpenClaw host:
 

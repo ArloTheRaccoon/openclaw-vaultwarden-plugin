@@ -3,7 +3,7 @@
   "version": "0.1.11-local.20260925",
   "description": "Read-only Bitwarden-compatible Vaultwarden tools for OpenClaw",
   "scripts": {
-    "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs",
+    "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs && esbuild src/secret-resolver-entry.ts --bundle --platform=node --format=esm --outfile=dist/secret-resolver.mjs",
     "test": "vitest run src/*.test.ts"
   },
   "repository": {
