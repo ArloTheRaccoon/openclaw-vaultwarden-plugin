@@ -1,12 +1,13 @@
 export type CliRunner = (args: string[]) => Promise<{ stdout: string; stderr: string }>;
 
 type RawVaultItem = {
+  [key: string]: unknown;
   id?: unknown;
   name?: unknown;
   type?: unknown;
   folderId?: unknown;
   collectionIds?: unknown;
-  login?: { uris?: Array<{ uri?: unknown }> };
+  login?: { [key: string]: unknown; uris?: Array<{ uri?: unknown }> };
 };
 
 export type SafeVaultItem = {

@@ -3,8 +3,10 @@
   "version": "0.1.11-local.20260925",
   "description": "Read-only Bitwarden-compatible Vaultwarden tools for OpenClaw",
   "scripts": {
-    "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs",
-    "test": "vitest run src/*.test.ts"
+    "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs && esbuild src/secret-resolver-entry.ts --bundle --platform=node --format=esm --outfile=dist/secret-resolver.mjs",
+    "test": "vitest run src/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0"
   },
   "repository": {
     "type": "git",
@@ -27,11 +29,17 @@
     "openclaw": ">=2026.9.5"
   },
   "devDependencies": {
+    "@types/node": "^26.6.3",
     "esbuild": "0.28.0",
+    "eslint": "^10.11.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1",
     "vitest": "4.1.6"
   },
   "openclaw": {
-    "extensions": ["./dist/index.mjs"],
+    "extensions": [
+      "./dist/index.mjs"
+    ],
     "install": {
       "npmSpec": "@arloraccoon/openclaw-vaultwarden",
       "defaultChoice": "npm",

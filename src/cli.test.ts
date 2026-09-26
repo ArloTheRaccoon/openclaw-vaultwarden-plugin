@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SecretInput } from "openclaw/plugin-sdk/config-contracts";
+import type { SecretInput } from "openclaw/plugin-sdk/secret-ref-runtime";
 import { createBitwardenCliRunner, redactCliError, parseBwStatus, type CliRunner } from "./cli.js";
 
 describe("Vaultwarden CLI adapter primitives", () => {
@@ -53,7 +53,7 @@ describe("Vaultwarden CLI adapter primitives", () => {
   });
 
   it("reads the runtime config at command time", async () => {
-    let currentConfig = {} as never;
+    const currentConfig = {} as never;
     let commandEnv: NodeJS.ProcessEnv | undefined;
     const runner = createBitwardenCliRunner({
       session: { source: "env", provider: "default", id: "TEST_BW_SESSION" },

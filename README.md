@@ -76,6 +76,47 @@ using an OpenClaw SecretRef:
 The session is resolved only at the CLI boundary and is never returned by a
 tool or written to audit events. File and exec SecretRefs are also supported.
 
+## SecretRef provider integration
+
+The plugin also declares a managed OpenClaw exec SecretRef provider preset
+named vaultwarden. OpenClaw runs the packaged Node resolver; the resolver
+reads only exact Bitwarden item IDs and returns only the explicitly selected
+field. It does not make secrets available through the plugin's read-only
+tools.
+
+Use a SecretRef ID in one of these forms:
+
+- `<item-uuid>/password` — the login password only
+- `<item-uuid>/field/<custom-field-name>` — exactly one custom text or hidden
+  field with that exact name
+
+For example, a supported service credential can refer to
+`{ "source": "exec", "provider": "vaultwarden", "id":
+"123e4567-e89b-42d3-a456-426614174000/password" }`. Replace the example UUID
+with the selected item's UUID. Username, TOTP, notes, boolean fields, and
+ambiguous/missing field names are not supported.
+
+The resolver uses `BW_SESSION` when OpenClaw explicitly passes it. Otherwise it
+reads `~/.openclaw/secrets/vaultwarden-session`, the private file created by
+`openclaw vaultwarden`; set `VAULTWARDEN_SESSION_FILE` to override that path.
+The file must be a regular, non-symlink file owned by the OpenClaw user with
+no group/other permissions (normally mode 0600) and contain one non-empty
+session value. Ensure bw is installed and configured for the intended
+Vaultwarden profile on the OpenClaw host.
+
+Requests are bounded, item IDs are strict UUIDs, and `bw get item <UUID>` is
+spawned without a shell, with a timeout and output limit. Resolver failures
+are generic and do not include CLI output or secret values. SecretRef
+materialization is handled by OpenClaw for supported config fields; this does
+not add a Git credential handoff.
+
+OpenClaw classifies private/self-hosted Git installs as unverified provenance,
+even when the installed commit matches the reviewed branch. This describes
+the source channel, not a content scan. Keep `vaultwarden` in the existing
+`plugins.allow` inventory when using an explicit plugin allowlist; do not
+replace the inventory with only this plugin. The allowlist pins which plugin
+IDs may load, but does not turn a private Git source into an official install.
+
 For a local operator setup that does not depend on Gateway environment
 inheritance, run this from the OpenClaw host:
 
@@ -91,11 +132,14 @@ vault or receive the session token.
 
 ## Security model
 
-- Read-only CLI commands only.
+- Interactive tools issue read-only CLI commands and expose metadata only.
 - Metadata-first output with field-level redaction.
 - Generic errors; CLI output and credentials are not copied into errors.
 - Structured audit events contain only operation and success/error outcome.
-- No vault unlock, secret retrieval, or mutation is performed by the plugin.
+- The separate SecretRef resolver retrieves only the explicitly selected
+  password or custom text/hidden field for OpenClaw's supported secret
+  resolution path; it does not expose values through plugin tools or logs.
+- The plugin does not unlock the vault or mutate vault data.
 
 ## Local verification
 
@@ -115,4 +159,8 @@ The integration script creates a disposable volatile Vaultwarden container,
 waits for `/alive` and `/api/config`, provisions a synthetic account through
 the disposable web registration flow, verifies isolated CLI login/unlock and
 the read-only plugin tools, and removes the container and temporary CLI
-profile on exit.
+profile on exit. This is a mixed-capability plugin (tools, auth CLI, and
+SecretRef provider); OpenClaw's `plugins validate` authoring check is for
+`defineToolPlugin`-style tool-only packages. Use the installed runtime smoke
+test for this package instead of treating that tool-only check as a generic
+plugin validity gate.
