@@ -1,10 +1,15 @@
 import { Type } from "typebox";
+import { textResult } from "openclaw/plugin-sdk/tool-results";
 import { emitVaultwardenAudit, type VaultwardenAuditSink } from "./audit.js";
 import { redactCliError } from "./cli.js";
 import { getVaultItem, listVaultObjects, searchVaultItems, type CliRunner } from "./vault.js";
 
 function jsonToolResult(value: unknown) {
-  return { content: [{ type: "text", text: JSON.stringify(value) }] };
+  return textResult(JSON.stringify(value), value);
+}
+
+function errorToolResult(error: unknown) {
+  return Object.assign(textResult(redactCliError(error), { error: true }), { isError: true });
 }
 
 export function createVaultwardenSearchTool(
@@ -28,7 +33,7 @@ export function createVaultwardenSearchTool(
         return jsonToolResult(result);
       } catch (error) {
         emitVaultwardenAudit(audit, "search", "error");
-        return { content: [{ type: "text", text: redactCliError(error) }], isError: true };
+        return errorToolResult(error);
       }
     },
   };
@@ -50,7 +55,7 @@ export function createVaultwardenGetItemTool(runner: CliRunner, audit?: Vaultwar
         return jsonToolResult(result);
       } catch (error) {
         emitVaultwardenAudit(audit, "get_item", "error");
-        return { content: [{ type: "text", text: redactCliError(error) }], isError: true };
+        return errorToolResult(error);
       }
     },
   };
@@ -75,7 +80,7 @@ function createListTool(
         return jsonToolResult(result);
       } catch (error) {
         emitVaultwardenAudit(audit, `list_${object}`, "error");
-        return { content: [{ type: "text", text: redactCliError(error) }], isError: true };
+        return errorToolResult(error);
       }
     },
   };

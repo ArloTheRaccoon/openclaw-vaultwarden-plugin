@@ -30,9 +30,12 @@ describe("SecretRef bw subprocess", () => {
     expect(spawnProcess).toHaveBeenCalledWith(
       "bw",
       ["get", "item", "123e4567-e89b-42d3-a456-426614174000"],
-      expect.objectContaining({ shell: false, stdio: ["ignore", "pipe", "ignore"] }),
+      expect.objectContaining({
+        shell: false,
+        env: expect.objectContaining({ BW_SESSION: "synthetic-session" }),
+        stdio: ["ignore", "pipe", "ignore"],
+      }),
     );
-    expect(spawnProcess.mock.calls[0]?.[2]).toMatchObject({ env: { BW_SESSION: "synthetic-session" } });
   });
 
   it("hides CLI errors and enforces output and time limits", async () => {
