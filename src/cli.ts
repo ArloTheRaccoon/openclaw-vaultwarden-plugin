@@ -31,7 +31,26 @@ export function parseBwStatus(stdout: string): BwStatus {
   };
 }
 
-export function redactCliError(_error: unknown): string {
+function cliErrorText(error: unknown): string {
+  if (typeof error === "string") {
+    return error;
+  }
+  if (!error || typeof error !== "object") {
+    return "";
+  }
+  const details = error as { message?: unknown; stderr?: unknown };
+  return [details.message, details.stderr]
+    .filter((value): value is string => typeof value === "string")
+    .join("\n");
+}
+
+const sessionFailurePattern =
+  /(?:session|token|authentication|credential).{0,48}(?:expired|invalid|unauthori[sz]ed|rejected|not valid)|(?:expired|invalid|unauthori[sz]ed|rejected).{0,48}(?:session|token|credential)|not logged in|you are not logged in|vault is locked|vault must be unlocked|\b401\b/i;
+
+export function redactCliError(error: unknown): string {
+  if (sessionFailurePattern.test(cliErrorText(error))) {
+    return "Vaultwarden session is unavailable or expired. On the OpenClaw host, run `openclaw vaultwarden` in a trusted terminal to log in or unlock and refresh the local session, then retry. The plugin will not prompt for or expose the master password.";
+  }
   return "Vaultwarden CLI command failed";
 }
 

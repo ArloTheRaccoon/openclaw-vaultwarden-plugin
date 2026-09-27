@@ -25,6 +25,13 @@ describe("Vaultwarden CLI adapter primitives", () => {
     );
   });
 
+  it("gives a safe recovery hint for an expired Vaultwarden session", () => {
+    expect(redactCliError(new Error("BW_SESSION expired"))).toContain(
+      "run `openclaw vaultwarden` in a trusted terminal",
+    );
+    expect(redactCliError(new Error("BW_SESSION expired"))).not.toContain("BW_SESSION");
+  });
+
   it("keeps the runner boundary injectable", async () => {
     const runner: CliRunner = async () => ({
       stdout: JSON.stringify({ serverUrl: "https://vaultwarden.example.test", status: "locked" }),

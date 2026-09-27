@@ -117,6 +117,17 @@ the source channel, not a content scan. Keep `vaultwarden` in the existing
 replace the inventory with only this plugin. The allowlist pins which plugin
 IDs may load, but does not turn a private Git source into an official install.
 
+## Session expiry and recovery
+
+Vault access tools never attempt to unlock the vault or prompt for the master
+password. If the Bitwarden CLI reports an expired or unavailable session, the
+tool returns a generic recovery instruction instead of raw CLI output. On the
+OpenClaw host, run `openclaw vaultwarden` in a trusted terminal. It logs in only
+when the CLI is unauthenticated, prompts locally to unlock, and atomically
+replaces the configured session file with mode `0600`. Retry the tool after the
+command succeeds; the file SecretRef is read for each CLI operation, so no
+session value needs to be copied into chat or config.
+
 For a local operator setup that does not depend on Gateway environment
 inheritance, run this from the OpenClaw host:
 
