@@ -8,6 +8,7 @@ import {
   createVaultwardenGetItemTool,
   createVaultwardenListCollectionsTool,
   createVaultwardenListFoldersTool,
+  createVaultwardenMutationTools,
   createVaultwardenSearchTool,
 } from "./src/vault-tools.js";
 
@@ -24,6 +25,7 @@ export default definePluginEntry({
       session?: SecretInput;
       timeoutSeconds?: number;
       maxResults?: number;
+      allowMutations?: boolean;
     };
     const configuredSession = (api.config.plugins?.entries?.vaultwarden?.config as
       | { session?: SecretInput }
@@ -54,5 +56,8 @@ export default definePluginEntry({
     api.registerTool(createVaultwardenListCollectionsTool(runner, config.maxResults ?? 20, audit), {
       name: "vaultwarden_list_collections",
     });
+    for (const tool of createVaultwardenMutationTools(runner, config.allowMutations === true, audit)) {
+      api.registerTool(tool, { name: tool.name });
+    }
   },
 });

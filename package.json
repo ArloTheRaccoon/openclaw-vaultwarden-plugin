@@ -1,7 +1,7 @@
 {
   "name": "@arloraccoon/openclaw-vaultwarden",
   "version": "0.1.11-local.20260925",
-  "description": "Read-only Bitwarden-compatible Vaultwarden tools for OpenClaw",
+  "description": "Metadata-safe Vaultwarden tools for OpenClaw with opt-in item mutations",
   "scripts": {
     "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs && esbuild src/secret-resolver-entry.ts --bundle --platform=node --format=esm --outfile=dist/secret-resolver.mjs",
     "test": "vitest run src/*.test.ts",
@@ -32,6 +32,7 @@
     "@types/node": "^26.6.3",
     "esbuild": "0.28.0",
     "eslint": "^10.11.0",
+    "playwright": "^1.63.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.1",
     "vitest": "4.1.6"

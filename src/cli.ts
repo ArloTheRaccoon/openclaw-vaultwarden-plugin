@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-contracts";
 import type { SecretInput } from "openclaw/plugin-sdk/secret-ref-runtime";
@@ -12,7 +12,7 @@ export type BwStatus = {
 };
 
 export type CliResult = { stdout: string; stderr: string };
-export type CliRunner = (args: string[]) => Promise<CliResult>;
+export type CliRunner = (args: string[], stdin?: string) => Promise<CliResult>;
 type CliExecutor = (
   file: string,
   args: string[],
@@ -20,8 +20,87 @@ type CliExecutor = (
     env: NodeJS.ProcessEnv;
     timeout: number;
     maxBuffer: number;
+    input?: string;
   },
 ) => Promise<CliResult>;
+
+type CliExecutionOptions = {
+  env: NodeJS.ProcessEnv;
+  timeout: number;
+  maxBuffer: number;
+  input?: string;
+};
+
+function execWithInput(file: string, args: string[], options: CliExecutionOptions): Promise<CliResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(file, args, {
+      env: options.env,
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    let outputBytes = 0;
+    let failed = false;
+    let timedOut = false;
+    let overflow = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, options.timeout);
+    const forceKill = setTimeout(() => child.kill("SIGKILL"), options.timeout + 1_000);
+    forceKill.unref();
+
+    const fail = (error: Error) => {
+      if (failed) return;
+      failed = true;
+      clearTimeout(timeout);
+      clearTimeout(forceKill);
+      reject(error);
+    };
+    child.once("error", (error) => fail(error));
+    child.stdout.on("data", (chunk: Buffer) => {
+      outputBytes += chunk.length;
+      if (outputBytes > options.maxBuffer) {
+        overflow = true;
+        child.kill("SIGTERM");
+        return;
+      }
+      stdout.push(chunk);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      outputBytes += chunk.length;
+      if (outputBytes > options.maxBuffer) {
+        overflow = true;
+        child.kill("SIGTERM");
+        return;
+      }
+      stderr.push(chunk);
+    });
+    child.once("close", (code, signal) => {
+      clearTimeout(timeout);
+      clearTimeout(forceKill);
+      if (failed) return;
+      const result = {
+        stdout: Buffer.concat(stdout).toString("utf8"),
+        stderr: Buffer.concat(stderr).toString("utf8"),
+      };
+      if (overflow) {
+        fail(Object.assign(new Error("Vaultwarden CLI output exceeded its limit"), result));
+      } else if (timedOut) {
+        fail(Object.assign(new Error("Vaultwarden CLI command timed out"), result));
+      } else if (code !== 0) {
+        fail(Object.assign(new Error(`Vaultwarden CLI exited with ${signal ?? code ?? "unknown status"}`), result));
+      } else {
+        resolve(result);
+      }
+    });
+    child.stdin.on("error", () => {
+      // The command may close stdin early; its exit status is reported on close.
+    });
+    child.stdin.end(options.input ?? "", "utf8");
+  });
+}
 
 export function parseBwStatus(stdout: string): BwStatus {
   const parsed = JSON.parse(stdout) as Record<string, unknown>;
@@ -123,7 +202,7 @@ export function createBitwardenCliRunner(params?: {
     }
   }
 
-  return async (args) => {
+  return async (args, stdin) => {
     const commandEnv = { ...env };
     const config = typeof params?.config === "function" ? params.config() : params?.config;
     const session = typeof params?.session === "function" ? params.session() : params?.session;
@@ -147,11 +226,19 @@ export function createBitwardenCliRunner(params?: {
     }
     let result: CliResult;
     try {
-      result = await executor("bw", args, {
+      const executionOptions = {
         env: commandEnv,
         timeout,
         maxBuffer: 2 * 1024 * 1024,
-      });
+        ...(stdin === undefined ? {} : { input: stdin }),
+      };
+      if (stdin === undefined) {
+        result = await executor("bw", args, executionOptions);
+      } else if (executor === (execFileAsync as unknown as CliExecutor)) {
+        result = await execWithInput("bw", args, executionOptions);
+      } else {
+        result = await executor("bw", args, executionOptions);
+      }
     } catch (error) {
       const details = error && typeof error === "object" ? error as { message?: unknown; stderr?: unknown } : {};
       const contextual: ContextualCliError = new Error(

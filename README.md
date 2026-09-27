@@ -1,10 +1,11 @@
 # OpenClaw Vaultwarden plugin
 
-Read-only Bitwarden-compatible Vaultwarden tools for OpenClaw.
+Metadata-safe Bitwarden-compatible Vaultwarden tools for OpenClaw, with
+explicitly opt-in login-item mutations.
 
 ## Scope
 
-The plugin exposes five metadata-safe tools:
+The plugin always exposes these metadata-safe tools:
 
 - `vaultwarden_status`
 - `vaultwarden_search`
@@ -12,8 +13,16 @@ The plugin exposes five metadata-safe tools:
 - `vaultwarden_list_folders`
 - `vaultwarden_list_collections`
 
-Passwords, usernames, TOTP seeds, secure notes, and other sensitive item
-fields are not returned. Write operations are intentionally out of scope.
+When `allowMutations: true` is explicitly configured, it additionally exposes:
+
+- `vaultwarden_create_item`
+- `vaultwarden_update_item`
+- `vaultwarden_delete_item`
+
+Item reads remain metadata-only. Passwords, usernames, TOTP seeds, notes, and
+custom-field values are not returned by these tools. The separate SecretRef
+resolver remains the supported exact-field path for supplying a password or
+hidden/text custom field to OpenClaw.
 
 ## Prerequisites
 
@@ -40,6 +49,7 @@ The plugin accepts:
 - `session`: an OpenClaw SecretRef or session string; SecretRef is recommended
 - `timeoutSeconds`: command timeout, from 1 to 120 seconds
 - `maxResults`: result bound, from 1 to 100 items
+- `allowMutations`: explicitly register create/update/soft-delete tools; defaults to `false`
 
 Example:
 
@@ -50,6 +60,42 @@ Example:
   "maxResults": 20
 }
 ```
+
+The read-only default is preserved unless the operator opts in:
+
+```json5
+{
+  plugins: {
+    entries: {
+      vaultwarden: {
+        enabled: true,
+        config: {
+          allowMutations: true
+        }
+      }
+    }
+  }
+}
+```
+
+## Controlled login-item mutations
+
+The optional mutation tools operate on one Bitwarden **login** item at a time.
+Create accepts a name plus optional username, password, URIs, notes, folder,
+collections, and custom fields (hidden by default). Update fetches the exact
+item internally, changes only supplied fields, and preserves other existing
+item data; it rejects non-login items. Set a field to `null` or an array to
+`[]` to clear/replace it where supported. Update/delete require a strict item
+UUID. Delete is a reversible Bitwarden soft-delete only; it requires a
+`confirmation` argument exactly matching `itemId`. Permanent deletion and bulk
+operations are not exposed.
+
+Mutation payloads are encoded and sent to the local `bw` process over stdin,
+not placed in command-line arguments. They are excluded from this plugin's
+audit events and tool results; CLI output and errors are redacted before they
+reach the caller. OpenClaw's own tool-call transcript/logging policy is a
+separate boundary. Enable mutations only for agents/workflows authorized to
+change the vault. Install and tests do not change production vault data.
 
 For a managed deployment, keep the session out of plaintext config and chat by
 using an OpenClaw SecretRef:
@@ -147,34 +193,40 @@ vault or receive the session token.
 
 ## Security model
 
-- Interactive tools issue read-only CLI commands and expose metadata only.
+- Interactive reads expose metadata only; optional writes are disabled by default.
+- Writes are single-item login operations, exact-ID scoped, and never hard-delete.
+- Secret payloads travel to the CLI over stdin; this plugin excludes them from audit events and tool results. Host transcript/logging policy is separate.
 - Metadata-first output with field-level redaction.
 - Generic errors; CLI output and credentials are not copied into errors.
 - Structured audit events contain only operation and success/error outcome.
 - The separate SecretRef resolver retrieves only the explicitly selected
   password or custom text/hidden field for OpenClaw's supported secret
   resolution path; it does not expose values through plugin tools or logs.
-- The plugin does not unlock the vault or mutate vault data.
+- The plugin does not unlock the vault. Vault mutation tools are registered only
+  when `allowMutations` is exactly `true`.
 
 ## Local verification
 
-From the OpenClaw checkout:
+From this standalone repository:
 
 ```bash
-bash extensions/vaultwarden/test-integration.sh
-pnpm exec vitest run --config test/vitest/vitest.extensions.config.ts \
-  extensions/vaultwarden/index.test.ts \
-  extensions/vaultwarden/src/cli.test.ts \
-  extensions/vaultwarden/src/vault.test.ts \
-  extensions/vaultwarden/src/audit.test.ts
-pnpm exec oxlint --tsconfig config/tsconfig/oxlint.extensions.json extensions/vaultwarden
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+bash tests/test-integration.sh
 ```
+
+The disposable integration gate also requires Docker, `bw`, `curl`, OpenSSL,
+and Playwright Chromium. Install Chromium once with
+`pnpm exec playwright install chromium`.
 
 The integration script creates a disposable volatile Vaultwarden container,
 waits for `/alive` and `/api/config`, provisions a synthetic account through
-the disposable web registration flow, verifies isolated CLI login/unlock and
-the read-only plugin tools, and removes the container and temporary CLI
-profile on exit. This is a mixed-capability plugin (tools, auth CLI, and
+the disposable web registration flow, verifies isolated CLI login/unlock,
+metadata reads, opt-in create/update/soft-delete, and SecretRef retrieval, then
+removes the container and temporary CLI profile on exit. This is a
+mixed-capability plugin (tools, auth CLI, and
 SecretRef provider); OpenClaw's `plugins validate` authoring check is for
 `defineToolPlugin`-style tool-only packages. Use the installed runtime smoke
 test for this package instead of treating that tool-only check as a generic
