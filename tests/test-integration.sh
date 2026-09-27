@@ -2,6 +2,9 @@
 
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$repo_root"
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required for the Vaultwarden integration gate." >&2
   exit 1
@@ -26,6 +29,7 @@ done
 
 container="openclaw-vaultwarden-integration-${RANDOM}-${RANDOM}"
 appdata="$(mktemp -d "${TMPDIR:-/tmp}/openclaw-vaultwarden-bw.XXXXXX")"
+build_dir="$(mktemp -d "$repo_root/.integration-smoke.XXXXXX")"
 tls_dir=""
 registration_pid=""
 cleanup() {
@@ -35,6 +39,7 @@ cleanup() {
   fi
   docker rm -f "$container" >/dev/null 2>&1 || true
   rm -rf "$appdata"
+  rm -rf "$build_dir"
   if [[ -n "$tls_dir" ]]; then
     rm -rf "$tls_dir"
   fi
@@ -128,41 +133,19 @@ export BW_SESSION="$(BITWARDENCLI_APPDATA_DIR="$appdata" bw --nointeraction logi
 export BW_SESSION="$(BITWARDENCLI_APPDATA_DIR="$appdata" bw --nointeraction unlock --passwordenv BW_TEST_PASSWORD --raw)"
 
 fixture_json="$(printf '%s' "{\"type\":1,\"name\":\"OpenClaw Synthetic Fixture\",\"notes\":\"${fixture_note}\",\"login\":{\"username\":\"fixture-user@example.test\",\"password\":\"${fixture_password}\",\"uris\":[{\"uri\":\"https://fixture.example.test\"}]}}" | BITWARDENCLI_APPDATA_DIR="$appdata" bw encode)"
-item_json="$(BITWARDENCLI_APPDATA_DIR="$appdata" bw create item "$fixture_json")"
-item_id="$(node --input-type=module -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.id)' "$item_json")"
+item_json="$(printf '%s' "$fixture_json" | BITWARDENCLI_APPDATA_DIR="$appdata" bw create item)"
+item_id="$(printf '%s' "$item_json" | node --input-type=module -e 'let input=""; for await (const chunk of process.stdin) input += chunk; process.stdout.write(JSON.parse(input).id)')"
+
+pnpm exec esbuild tests/runtime-smoke.ts \
+  --bundle --platform=node --format=esm \
+  --external:openclaw --external:openclaw/* --external:typebox \
+  --outfile="$build_dir/runtime-smoke.mjs" >/dev/null
 
 BITWARDENCLI_APPDATA_DIR="$appdata" \
 BW_SESSION="$BW_SESSION" \
 FIXTURE_PASSWORD="$fixture_password" \
 FIXTURE_NOTE="$fixture_note" \
 FIXTURE_ITEM_ID="$item_id" \
-  node --import tsx --input-type=module <<'NODE'
-import assert from "node:assert/strict";
-import { createBitwardenCliRunner } from "./extensions/vaultwarden/src/cli.ts";
-import { createVaultwardenStatusTool } from "./extensions/vaultwarden/src/status-tool.ts";
-import {
-  createVaultwardenGetItemTool,
-  createVaultwardenListCollectionsTool,
-  createVaultwardenListFoldersTool,
-  createVaultwardenSearchTool,
-} from "./extensions/vaultwarden/src/vault-tools.ts";
-
-const runner = createBitwardenCliRunner({ env: process.env });
-const status = await createVaultwardenStatusTool(runner).execute();
-const search = await createVaultwardenSearchTool(runner, 20).execute("test", {
-  query: "OpenClaw Synthetic Fixture",
-});
-const item = await createVaultwardenGetItemTool(runner).execute("test", {
-  itemId: process.env.FIXTURE_ITEM_ID,
-});
-const folders = await createVaultwardenListFoldersTool(runner, 20).execute();
-const collections = await createVaultwardenListCollectionsTool(runner, 20).execute();
-const output = JSON.stringify({ status, search, item, folders, collections });
-assert.match(output, /unlocked/);
-assert.match(output, /OpenClaw Synthetic Fixture/);
-assert.doesNotMatch(output, new RegExp(process.env.FIXTURE_PASSWORD));
-assert.doesNotMatch(output, new RegExp(process.env.FIXTURE_NOTE));
-assert.doesNotMatch(output, /fixture-user@example\.test/);
-NODE
+  node "$build_dir/runtime-smoke.mjs"
 
 echo "Vaultwarden disposable integration passed (container=${container}, port=${port})."

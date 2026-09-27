@@ -65,6 +65,24 @@ describe("Vaultwarden CLI adapter primitives", () => {
     expect(result.stdout).toContain('"locked"');
   });
 
+  it("passes sensitive command payload through stdin without adding it to argv", async () => {
+    const argsSeen: string[][] = [];
+    let stdinSeen: string | undefined;
+    const runner = createBitwardenCliRunner({
+      env: { PATH: "/usr/bin" },
+      executor: async (_file, args, options) => {
+        argsSeen.push(args);
+        stdinSeen = options.input;
+        return { stdout: "{}", stderr: "" };
+      },
+    });
+
+    await runner(["create", "item"], "base64-payload-containing-a-secret");
+
+    expect(argsSeen).toEqual([["create", "item"]]);
+    expect(stdinSeen).toBe("base64-payload-containing-a-secret");
+  });
+
   it("resolves a configured session SecretRef only into the CLI environment", async () => {
     let commandEnv: NodeJS.ProcessEnv | undefined;
     const runner = createBitwardenCliRunner({

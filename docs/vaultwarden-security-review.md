@@ -40,6 +40,29 @@ is intentionally used only inside the disposable test container.
 
 ## Decision
 
-The read-only MVP is suitable for continued local development. The
+The metadata-read MVP was suitable for continued local development. The
 authenticated disposable fixture is closed; standalone packaging, npm,
 provenance, and ClawHub release blockers remain open.
+
+## Opt-in CRUD follow-up — 2026-09-27
+
+This implementation adds create/update/soft-delete for one login item at a
+time, gated by `allowMutations: true` (default: false). Reads remain
+metadata-only; secret retrieval continues through the exact-field SecretRef
+resolver. Updates load the exact item internally and preserve fields that were
+not supplied. Delete is reversible only and requires confirmation equal to the
+item UUID. Mutations use the Bitwarden CLI with encoded JSON delivered through
+stdin; item payloads are absent from command-line arguments, plugin audit
+events, responses, and surfaced errors. OpenClaw host transcript/logging
+policy remains a separate boundary. The disposable integration is expected to
+cover the complete create/read/update/delete flow.
+
+The disposable integration covered the complete create/read/update/soft-delete
+flow. Review on 2026-09-27 found no critical or high-severity issues; build,
+typecheck, lint, 46 unit tests, Guard scan, and the disposable integration all
+passed. This approves the implementation for merge, not automatic enablement.
+An operator who opts in grants the agent permission to change login items, and
+confirmation is an application guard rather than a separate human approval
+channel. Keep mutation tools disabled until the target-agent permission policy
+is explicitly approved. Production vault data was not used or changed by
+implementation or tests.

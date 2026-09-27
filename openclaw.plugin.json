@@ -1,7 +1,7 @@
 {
   "id": "vaultwarden",
   "name": "Vaultwarden",
-  "description": "Bitwarden-compatible Vaultwarden tools for OpenClaw",
+  "description": "Metadata-safe Bitwarden-compatible Vaultwarden tools for OpenClaw with opt-in item mutations",
   "secretProviderIntegrations": {
     "vaultwarden": {
       "displayName": "Vaultwarden",
@@ -23,7 +23,10 @@
       "vaultwarden_search",
       "vaultwarden_get_item",
       "vaultwarden_list_folders",
-      "vaultwarden_list_collections"
+      "vaultwarden_list_collections",
+      "vaultwarden_create_item",
+      "vaultwarden_update_item",
+      "vaultwarden_delete_item"
     ]
   },
   "configSchema": {
@@ -75,6 +78,11 @@
         "type": "integer",
         "minimum": 1,
         "maximum": 100
+      },
+      "allowMutations": {
+        "type": "boolean",
+        "default": false,
+        "description": "Register login-item create, update, and soft-delete tools. Disabled by default."
       }
     }
   }
