@@ -35,7 +35,7 @@ describe("Vaultwarden SecretRef resolver", () => {
       source: "exec",
       command: "${node}",
       args: ["./dist/secret-resolver.mjs"],
-      passEnv: ["BW_SESSION", "VAULTWARDEN_SESSION_FILE"],
+      passEnv: ["BW_SESSION", "VAULTWARDEN_SESSION_FILE", "PATH"],
       jsonOnly: true,
     });
   });

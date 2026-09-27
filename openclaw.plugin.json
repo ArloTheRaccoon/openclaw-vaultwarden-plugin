@@ -8,7 +8,7 @@
       "source": "exec",
       "command": "${node}",
       "args": ["./dist/secret-resolver.mjs"],
-      "passEnv": ["BW_SESSION", "VAULTWARDEN_SESSION_FILE"],
+      "passEnv": ["BW_SESSION", "VAULTWARDEN_SESSION_FILE", "PATH"],
       "timeoutMs": 15000,
       "maxOutputBytes": 65536,
       "jsonOnly": true
