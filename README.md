@@ -40,6 +40,97 @@ the model for a master password. For isolated testing, set
 `BITWARDENCLI_APPDATA_DIR` to a temporary directory and do not point it at a
 production CLI profile.
 
+## Install the plugin
+
+Run either method on the machine that runs the OpenClaw Gateway. Set `REPO_DIR`
+to the absolute path of your local checkout; the example below uses a generic
+placeholder and does not assume a particular home-directory layout.
+
+### Method 1: Link the local checkout
+
+Best for local development. OpenClaw loads the built files directly from the
+checkout, so each source change can be built in place:
+
+```bash
+REPO_DIR="/path/to/openclaw-vaultwarden"
+cd "$REPO_DIR"
+git pull --ff-only
+pnpm install --frozen-lockfile
+pnpm build
+openclaw plugins install "$REPO_DIR" --link --force --accept-capabilities
+openclaw config validate
+openclaw plugins reload vaultwarden --accept-capabilities
+```
+
+Re-run `pnpm build` after source changes, then reload the plugin. `--link`
+requires an existing local path and cannot be combined with a `git:` source.
+
+### Method 2: Install from a local Git URL
+
+This installs a committed Git snapshot into OpenClaw's managed plugin
+directory; it is not linked to the checkout:
+
+```bash
+REPO_DIR="/path/to/openclaw-vaultwarden"
+openclaw plugins install "git:file://${REPO_DIR}" --force --accept-capabilities
+openclaw config validate
+openclaw plugins reload vaultwarden --accept-capabilities
+```
+
+OpenClaw clones committed Git contents for this method. This repository ignores
+generated `dist/` files, which contain the entry points required by
+`openclaw.plugin.json`; building `dist/` in the checkout does not add it to the
+Git clone. Therefore, use this method only with a prepared Git source that
+includes those built entry points. For this checkout's normal local build and
+install workflow, use Method 1.
+
+For either method, `--force` permits replacing an existing installation and
+`--accept-capabilities` accepts the capabilities declared by this plugin.
+Review the plugin capabilities before accepting them.
+
+The plugin registers read-only tools by default. To also register the
+single-item create, update, and soft-delete tools, set the JSON boolean after
+installing the version whose schema includes the option:
+
+```bash
+openclaw config set plugins.entries.vaultwarden.config.allowMutations true --strict-json
+openclaw config validate
+openclaw plugins reload vaultwarden --accept-capabilities
+```
+
+This changes only the `allowMutations` leaf and preserves other plugin
+settings, including a configured session SecretRef. Leave it unset or `false`
+to keep mutation tools unavailable. Keep `vaultwarden` in the existing
+`plugins.allow` inventory if the Gateway uses an explicit plugin allowlist.
+
+### Troubleshooting the local install
+
+- **`allowMutations` is unknown or rejected:** Build and install the latest
+  checkout first, then set the option and validate again. An older installed
+  plugin schema cannot validate a field introduced by the newer source.
+- **Plugin entry or extension path is missing:** Check that
+  `$REPO_DIR/dist/index.mjs` exists and
+  rerun the `plugins install` command above. For a linked install, confirm
+  `~/.openclaw/extensions/vaultwarden` resolves to the maintained checkout.
+  Prefer the supported installer to manually editing the plugin registry or
+  creating/removing extension paths.
+- **Plugin does not load after install:** Run `openclaw config validate` and
+  `openclaw plugins doctor`; inspect the reported plugin ID and path, rebuild
+  with `pnpm build`, then run `openclaw plugins reload vaultwarden
+  --accept-capabilities`.
+- **Install appears stuck or asks about local-source trust/capabilities:** Run
+  the command in an interactive terminal and respond to any prompt. The flags
+  above handle the normal source/capability confirmations; do not start a
+  second install while the first is still running.
+- **Config validation reports an active agent database lease:** Another
+  OpenClaw process is using the state database. Check Gateway/process status
+  and wait for any concurrent update or maintenance operation to finish
+  before retrying validation; do not delete SQLite, WAL, or SHM files.
+- **Vault session is expired:** Follow
+  [Session expiry and recovery](#session-expiry-and-recovery). Refresh the
+  configured provider rather than putting a session token in chat or replacing
+  the plugin config object.
+
 ## OpenClaw configuration
 
 The plugin accepts:
