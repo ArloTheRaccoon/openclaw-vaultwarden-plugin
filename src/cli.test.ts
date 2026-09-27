@@ -32,6 +32,30 @@ describe("Vaultwarden CLI adapter primitives", () => {
     expect(redactCliError(new Error("BW_SESSION expired"))).not.toContain("BW_SESSION");
   });
 
+  it("does not suggest the local-file helper for an environment SecretRef", async () => {
+    const runner = createBitwardenCliRunner({
+      session: { source: "env", provider: "default", id: "TEST_BW_SESSION" },
+      config: {} as never,
+      env: { PATH: "/usr/bin", TEST_BW_SESSION: "test-session-token" },
+      executor: async () => {
+        throw new Error("BW_SESSION expired");
+      },
+    });
+
+    let failure: unknown;
+    try {
+      await runner(["status"]);
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeDefined();
+    const message = redactCliError(failure);
+    expect(message).toContain("Refresh the configured environment SecretRef");
+    expect(message).toContain("does not replace an environment SecretRef");
+    expect(message).not.toContain("TEST_BW_SESSION");
+    expect(message).not.toContain("test-session-token");
+  });
+
   it("keeps the runner boundary injectable", async () => {
     const runner: CliRunner = async () => ({
       stdout: JSON.stringify({ serverUrl: "https://vaultwarden.example.test", status: "locked" }),

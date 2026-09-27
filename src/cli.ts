@@ -44,12 +44,51 @@ function cliErrorText(error: unknown): string {
     .join("\n");
 }
 
+type RecoverySource = "file" | "env" | "exec" | "store" | "inline" | "default";
+
+function sessionRecoverySource(
+  session: SecretInput | undefined,
+  sessionEnv: string,
+  inherited: NodeJS.ProcessEnv,
+): RecoverySource {
+  if (typeof session === "string") return "inline";
+  if (session && typeof session === "object" && "source" in session) {
+    const source = (session as { source?: unknown }).source;
+    if (source === "file" || source === "env" || source === "exec" || source === "store") {
+      return source;
+    }
+  }
+  return inherited[sessionEnv] ? "env" : "default";
+}
+
+function recoveryInstruction(source: RecoverySource): string {
+  switch (source) {
+    case "file":
+      return "Refresh the file configured for the Vaultwarden SecretRef, then retry. For a single-value file provider, run `openclaw vaultwarden --session-file <configured-path>` in a trusted terminal; do not use that command on a JSON provider file.";
+    case "env":
+      return "Refresh the configured environment SecretRef in the Gateway's environment, then retry. `openclaw vaultwarden` writes a local file and does not replace an environment SecretRef.";
+    case "exec":
+    case "store":
+      return "Refresh the configured SecretRef at its provider, then retry. `openclaw vaultwarden` writes a local file and does not update that provider.";
+    case "inline":
+      return "Replace the configured session value with a freshly unlocked session using a secure local configuration path; do not paste it into chat. `openclaw vaultwarden` writes a local file but does not change inline configuration.";
+    default:
+      return "On the OpenClaw host, run `openclaw vaultwarden` in a trusted terminal to create the default local session file, then configure the plugin session as a file SecretRef to that file and retry. The CLI does not read the file automatically.";
+  }
+}
+
+type ContextualCliError = Error & { stderr?: string; recoverySource?: RecoverySource };
+
 const sessionFailurePattern =
   /(?:session|token|authentication|credential).{0,48}(?:expired|invalid|unauthori[sz]ed|rejected|not valid)|(?:expired|invalid|unauthori[sz]ed|rejected).{0,48}(?:session|token|credential)|not logged in|you are not logged in|vault is locked|vault must be unlocked|\b401\b/i;
 
 export function redactCliError(error: unknown): string {
   if (sessionFailurePattern.test(cliErrorText(error))) {
-    return "Vaultwarden session is unavailable or expired. On the OpenClaw host, run `openclaw vaultwarden` in a trusted terminal to log in or unlock and refresh the local session, then retry. The plugin will not prompt for or expose the master password.";
+    const source =
+      error && typeof error === "object" && "recoverySource" in error
+        ? (error as ContextualCliError).recoverySource
+        : undefined;
+    return `Vaultwarden session is unavailable or expired. ${recoveryInstruction(source ?? "default")} The plugin will not prompt for or expose the master password.`;
   }
   return "Vaultwarden CLI command failed";
 }
@@ -106,11 +145,22 @@ export function createBitwardenCliRunner(params?: {
     } else {
       params?.onSessionResolution?.({ configured: session !== undefined, resolved: false });
     }
-    const result = await executor("bw", args, {
-      env: commandEnv,
-      timeout,
-      maxBuffer: 2 * 1024 * 1024,
-    });
+    let result: CliResult;
+    try {
+      result = await executor("bw", args, {
+        env: commandEnv,
+        timeout,
+        maxBuffer: 2 * 1024 * 1024,
+      });
+    } catch (error) {
+      const details = error && typeof error === "object" ? error as { message?: unknown; stderr?: unknown } : {};
+      const contextual: ContextualCliError = new Error(
+        typeof details.message === "string" ? details.message : "Vaultwarden CLI command failed",
+      );
+      if (typeof details.stderr === "string") contextual.stderr = details.stderr;
+      contextual.recoverySource = sessionRecoverySource(session, sessionEnv, inherited);
+      throw contextual;
+    }
     return { stdout: result.stdout, stderr: result.stderr };
   };
 }
