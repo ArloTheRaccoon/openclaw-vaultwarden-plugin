@@ -1,5 +1,7 @@
 # OpenClaw Vaultwarden plugin
 
+Package: `@arloraccoon/openclaw-vaultwarden-plugin`
+
 Metadata-safe Bitwarden-compatible Vaultwarden tools for OpenClaw, with
 explicitly opt-in login-item mutations.
 
@@ -52,7 +54,7 @@ Best for local development. OpenClaw loads the built files directly from the
 checkout, so each source change can be built in place:
 
 ```bash
-REPO_DIR="/path/to/openclaw-vaultwarden"
+REPO_DIR="/path/to/openclaw-vaultwarden-plugin"
 cd "$REPO_DIR"
 git pull --ff-only
 pnpm install --frozen-lockfile
@@ -71,7 +73,7 @@ This installs a committed Git snapshot into OpenClaw's managed plugin
 directory; it is not linked to the checkout:
 
 ```bash
-REPO_DIR="/path/to/openclaw-vaultwarden"
+REPO_DIR="/path/to/openclaw-vaultwarden-plugin"
 openclaw plugins install "git:file://${REPO_DIR}" --force --accept-capabilities
 openclaw config validate
 openclaw plugins reload vaultwarden --accept-capabilities
