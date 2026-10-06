@@ -1,0 +1,21 @@
+name: Public mirror guard
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  metadata-guard:
+    name: metadata-guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject private and generated paths
+        run: |
+          forbidden='^(\.beads|\.crew|dist)(/|$)'
+          if git ls-tree -r --name-only "$GITHUB_SHA" | grep -E "$forbidden"; then
+            echo 'Private CREW metadata and generated dist files must not be published.' >&2
+            exit 1
+          fi
