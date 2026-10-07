@@ -1,17 +1,19 @@
 {
   "name": "@arloraccoon/openclaw-vaultwarden-plugin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Metadata-safe Vaultwarden tools for OpenClaw with opt-in item mutations",
   "scripts": {
     "build": "esbuild index.ts --bundle --platform=node --format=esm --external:openclaw '--external:openclaw/*' --external:typebox --outfile=dist/index.mjs && esbuild src/secret-resolver-entry.ts --bundle --platform=node --format=esm --outfile=dist/secret-resolver.mjs",
     "test": "vitest run src/*.test.ts",
+    "test:package": "bash tests/package-smoke.sh",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ArloTheRaccoon/openclaw-vaultwarden-plugin"
+    "url": "git+https://github.com/ArloTheRaccoon/openclaw-vaultwarden-plugin.git"
   },
+  "packageManager": "pnpm@10.33.2",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.mjs",

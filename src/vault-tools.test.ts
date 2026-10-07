@@ -72,6 +72,7 @@ describe("Vaultwarden mutation tools", () => {
             name: "Service token",
             notes: "existing-note",
             login: { username: "existing-user", password: "existing-password", uris: [] },
+            fields: [{ name: "preserved-field", value: "preserved-secret", type: "hidden" }],
           }),
           stderr: "",
         };
@@ -101,9 +102,35 @@ describe("Vaultwarden mutation tools", () => {
       uris: [],
     });
     expect(encodedPayload(calls[1]?.stdin).notes).toBe("existing-note");
+    expect(encodedPayload(calls[1]?.stdin).fields).toEqual([
+      { name: "preserved-field", value: "preserved-secret", type: "hidden" },
+    ]);
     expect(JSON.stringify(result)).not.toContain("existing-user");
     expect(JSON.stringify(result)).not.toContain("existing-password");
     expect(JSON.stringify(result)).not.toContain("replacement-password");
+  });
+
+  it("returns a redacted error and error audit when an update cannot read the item", async () => {
+    const events: unknown[] = [];
+    const runner: CliRunner = async () => {
+      throw new Error("BW_SESSION expired: session-token-must-not-leak");
+    };
+
+    const result = await createVaultwardenUpdateItemTool(runner, (event) => events.push(event)).execute("call", {
+      itemId,
+      password: "replacement-password",
+    });
+
+    expect(result).toMatchObject({ isError: true });
+    expect(JSON.stringify(result)).toContain("Vaultwarden session is expired");
+    expect(JSON.stringify(result)).not.toContain("session-token-must-not-leak");
+    expect(JSON.stringify(result)).not.toContain("replacement-password");
+    expect(events).toEqual([{
+      event: "vaultwarden.tool",
+      operation: "update_item",
+      outcome: "error",
+      itemId,
+    }]);
   });
 
   it("requires the exact item ID to confirm soft deletion", async () => {

@@ -59,6 +59,7 @@ cd "$REPO_DIR"
 git pull --ff-only
 pnpm install --frozen-lockfile
 pnpm build
+pnpm test:package
 openclaw plugins install "$REPO_DIR" --link --force --accept-capabilities
 openclaw config validate
 openclaw plugins reload vaultwarden --accept-capabilities
@@ -324,3 +325,12 @@ SecretRef provider); OpenClaw's `plugins validate` authoring check is for
 `defineToolPlugin`-style tool-only packages. Use the installed runtime smoke
 test for this package instead of treating that tool-only check as a generic
 plugin validity gate.
+
+## Release synchronization
+
+Forgejo is the canonical development repository; the public GitHub mirror
+excludes `.beads/`, `.crew/`, and generated `dist/` files. npm and ClawHub must
+carry the same semver version. Release tags run `publish-npm.yml` through npm
+Trusted Publishing (OIDC); do not add registry tokens to GitHub secrets. Run
+`RELEASE-CHECKLIST.md` before creating a tag and verify both registries after
+publication.

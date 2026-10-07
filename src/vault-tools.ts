@@ -98,10 +98,10 @@ export function createVaultwardenUpdateItemTool(runner: CliRunner, audit?: Vault
       try {
         const { itemId, ...patch } = params;
         const result = await updateLoginVaultItem({ runner, itemId, patch });
-        emitVaultwardenAudit(audit, "update_item", "success");
+        emitVaultwardenAudit(audit, "update_item", "success", itemId);
         return jsonToolResult(result);
       } catch (error) {
-        emitVaultwardenAudit(audit, "update_item", "error");
+        emitVaultwardenAudit(audit, "update_item", "error", params.itemId);
         return errorToolResult(error);
       }
     },
@@ -125,10 +125,10 @@ export function createVaultwardenDeleteItemTool(runner: CliRunner, audit?: Vault
       try {
         if (params.confirmation !== params.itemId) throw new Error("Confirmation mismatch");
         const result = await deleteLoginVaultItem({ runner, itemId: params.itemId });
-        emitVaultwardenAudit(audit, "delete_item", "success");
+        emitVaultwardenAudit(audit, "delete_item", "success", params.itemId);
         return jsonToolResult(result);
       } catch (error) {
-        emitVaultwardenAudit(audit, "delete_item", "error");
+        emitVaultwardenAudit(audit, "delete_item", "error", params.itemId);
         return errorToolResult(error);
       }
     },

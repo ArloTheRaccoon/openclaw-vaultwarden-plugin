@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SecretInput } from "openclaw/plugin-sdk/secret-ref-runtime";
-import { createBitwardenCliRunner, redactCliError, parseBwStatus, type CliRunner } from "./cli.js";
+import { classifySessionFailure, createBitwardenCliRunner, redactCliError, parseBwStatus, type CliRunner } from "./cli.js";
 
 describe("Vaultwarden CLI adapter primitives", () => {
   it("parses status without requiring vault contents", () => {
@@ -29,7 +29,16 @@ describe("Vaultwarden CLI adapter primitives", () => {
     expect(redactCliError(new Error("BW_SESSION expired"))).toContain(
       "run `openclaw vaultwarden` in a trusted terminal",
     );
+    expect(redactCliError(new Error("BW_SESSION expired"))).toContain("bw status --raw");
     expect(redactCliError(new Error("BW_SESSION expired"))).not.toContain("BW_SESSION");
+  });
+
+  it("classifies locked, unauthenticated, and expired session failures", () => {
+    expect(classifySessionFailure(new Error("vault is locked"))).toBe("locked");
+    expect(classifySessionFailure(new Error("Not logged in"))).toBe("unauthenticated");
+    expect(classifySessionFailure(new Error("BW_SESSION expired"))).toBe("expired");
+    expect(redactCliError(new Error("vault is locked"))).toContain("vault is locked");
+    expect(redactCliError(new Error("Not logged in"))).toContain("authentication is unavailable");
   });
 
   it("does not suggest the local-file helper for an environment SecretRef", async () => {

@@ -5,9 +5,39 @@ import {
   mergeLoginVaultItem,
   parseItemList,
   redactVaultItem,
+  updateLoginVaultItem,
 } from "./vault.js";
 
 describe("Vaultwarden item redaction", () => {
+  it("serializes concurrent updates for the same item", async () => {
+    const itemId = "9a7e20c6-4aed-4e81-88af-048f7d99b013";
+    const calls: string[] = [];
+    let releaseFirst!: () => void;
+    const firstRead = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let reads = 0;
+    const runner = async (args: string[]) => {
+      if (args[0] === "get") {
+        reads += 1;
+        calls.push(`get-${reads}`);
+        if (reads === 1) await firstRead;
+        return { stdout: JSON.stringify({ id: itemId, type: 1, name: "Fixture", login: {} }), stderr: "" };
+      }
+      calls.push("edit");
+      return { stdout: JSON.stringify({ id: itemId, type: 1, name: "Fixture", login: {} }), stderr: "" };
+    };
+
+    const first = updateLoginVaultItem({ runner, itemId, patch: { name: "First" } });
+    await Promise.resolve();
+    const second = updateLoginVaultItem({ runner, itemId, patch: { name: "Second" } });
+    await Promise.resolve();
+    expect(calls).toEqual(["get-1"]);
+    releaseFirst();
+    await Promise.all([first, second]);
+    expect(calls).toEqual(["get-1", "edit", "get-2", "edit"]);
+  });
+
   it("keeps metadata and strips sensitive login fields", () => {
     expect(
       redactVaultItem({

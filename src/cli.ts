@@ -141,18 +141,19 @@ function sessionRecoverySource(
 }
 
 function recoveryInstruction(source: RecoverySource): string {
+  const statusCheck = "First verify the host with `bw status --raw`;";
   switch (source) {
     case "file":
-      return "Refresh the file configured for the Vaultwarden SecretRef, then retry. For a single-value file provider, run `openclaw vaultwarden --session-file <configured-path>` in a trusted terminal; do not use that command on a JSON provider file.";
+      return `${statusCheck} Refresh the file configured for the Vaultwarden SecretRef, then retry. For a single-value file provider, run \`openclaw vaultwarden --session-file <configured-path>\` in a trusted terminal; do not use that command on a JSON provider file.`;
     case "env":
-      return "Refresh the configured environment SecretRef in the Gateway's environment, then retry. `openclaw vaultwarden` writes a local file and does not replace an environment SecretRef.";
+      return `${statusCheck} Refresh the configured environment SecretRef in the Gateway's environment, then retry. \`openclaw vaultwarden\` writes a local file and does not replace an environment SecretRef.`;
     case "exec":
     case "store":
-      return "Refresh the configured SecretRef at its provider, then retry. `openclaw vaultwarden` writes a local file and does not update that provider.";
+      return `${statusCheck} Refresh the configured SecretRef at its provider, then retry. \`openclaw vaultwarden\` writes a local file and does not update that provider.`;
     case "inline":
-      return "Replace the configured session value with a freshly unlocked session using a secure local configuration path; do not paste it into chat. `openclaw vaultwarden` writes a local file but does not change inline configuration.";
+      return `${statusCheck} Replace the configured session value with a freshly unlocked session using a secure local configuration path; do not paste it into chat. \`openclaw vaultwarden\` writes a local file but does not change inline configuration.`;
     default:
-      return "On the OpenClaw host, run `openclaw vaultwarden` in a trusted terminal to create the default local session file, then configure the plugin session as a file SecretRef to that file and retry. The CLI does not read the file automatically.";
+      return `${statusCheck} On the OpenClaw host, run \`openclaw vaultwarden\` in a trusted terminal to create the default local session file, then configure the plugin session as a file SecretRef to that file and retry. The CLI does not read the file automatically.`;
   }
 }
 
@@ -161,13 +162,42 @@ type ContextualCliError = Error & { stderr?: string; recoverySource?: RecoverySo
 const sessionFailurePattern =
   /(?:session|token|authentication|credential).{0,48}(?:expired|invalid|unauthori[sz]ed|rejected|not valid)|(?:expired|invalid|unauthori[sz]ed|rejected).{0,48}(?:session|token|credential)|not logged in|you are not logged in|vault is locked|vault must be unlocked|\b401\b/i;
 
+export type SessionFailureKind = "expired" | "locked" | "unauthenticated" | "unavailable";
+
+export function classifySessionFailure(error: unknown): SessionFailureKind | undefined {
+  const text = cliErrorText(error);
+  if (!sessionFailurePattern.test(text)) return undefined;
+  if (/expired|session.*(?:invalid|not valid)|(?:invalid|not valid).*session/i.test(text)) {
+    return "expired";
+  }
+  if (/vault (?:is )?locked|vault must be unlocked|locked/i.test(text)) return "locked";
+  if (/not logged in|unauthenticated|\b401\b|unauthori[sz]ed/i.test(text)) {
+    return "unauthenticated";
+  }
+  return "unavailable";
+}
+
+function sessionFailurePrefix(kind: SessionFailureKind): string {
+  switch (kind) {
+    case "locked":
+      return "Vaultwarden vault is locked";
+    case "unauthenticated":
+      return "Vaultwarden authentication is unavailable";
+    case "unavailable":
+      return "Vaultwarden session could not be used";
+    default:
+      return "Vaultwarden session is expired";
+  }
+}
+
 export function redactCliError(error: unknown): string {
-  if (sessionFailurePattern.test(cliErrorText(error))) {
+  const failureKind = classifySessionFailure(error);
+  if (failureKind) {
     const source =
       error && typeof error === "object" && "recoverySource" in error
         ? (error as ContextualCliError).recoverySource
         : undefined;
-    return `Vaultwarden session is unavailable or expired. ${recoveryInstruction(source ?? "default")} The plugin will not prompt for or expose the master password.`;
+    return `${sessionFailurePrefix(failureKind)}. ${recoveryInstruction(source ?? "default")} The plugin will not prompt for or expose the master password.`;
   }
   return "Vaultwarden CLI command failed";
 }

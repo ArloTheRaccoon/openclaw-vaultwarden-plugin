@@ -13,6 +13,23 @@ type RawVaultItem = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ITEM_BYTES = 64 * 1024;
 const MAX_SECRET_BYTES = 24 * 1024;
+const mutationLocks = new Map<string, Promise<void>>();
+
+async function withMutationLock<T>(itemId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = mutationLocks.get(itemId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  mutationLocks.set(itemId, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (mutationLocks.get(itemId) === current) mutationLocks.delete(itemId);
+  }
+}
 
 export type LoginFieldInput = {
   name: string;
@@ -211,10 +228,12 @@ export async function updateLoginVaultItem(params: {
   patch: LoginItemPatch;
 }): Promise<SafeVaultItem> {
   const itemId = checkedId(params.itemId, "item ID");
-  const current = await params.runner(["get", "item", itemId]);
-  const item = mergeLoginVaultItem(JSON.parse(current.stdout), params.patch);
-  const result = await params.runner(["edit", "item", itemId], encodeVaultItem(item));
-  return parseMutationItem(result.stdout);
+  return withMutationLock(itemId, async () => {
+    const current = await params.runner(["get", "item", itemId]);
+    const item = mergeLoginVaultItem(JSON.parse(current.stdout), params.patch);
+    const result = await params.runner(["edit", "item", itemId], encodeVaultItem(item));
+    return parseMutationItem(result.stdout);
+  });
 }
 
 export async function deleteLoginVaultItem(params: {
@@ -222,8 +241,10 @@ export async function deleteLoginVaultItem(params: {
   itemId: string;
 }): Promise<{ id: string; deleted: true }> {
   const itemId = checkedId(params.itemId, "item ID");
-  await params.runner(["delete", "item", itemId]);
-  return { id: itemId, deleted: true };
+  return withMutationLock(itemId, async () => {
+    await params.runner(["delete", "item", itemId]);
+    return { id: itemId, deleted: true };
+  });
 }
 
 export type SafeVaultItem = {
