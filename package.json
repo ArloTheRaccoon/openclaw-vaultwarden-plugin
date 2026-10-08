@@ -12,6 +12,7 @@
     "type": "git",
     "url": "https://github.com/ArloTheRaccoon/openclaw-vaultwarden-plugin"
   },
+  "packageManager": "pnpm@10.33.2",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.mjs",
